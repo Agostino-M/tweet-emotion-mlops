@@ -1,0 +1,22 @@
+task: emotion
+labels: [anger, joy, optimism, sadness]
+
+model:
+  name: roberta-base
+  dropout: 0.3
+  hidden_dim: 64
+  max_length: 74   # covers ~all tweets after preprocessing (see notebook analysis)
+
+training:
+  batch_size: 16
+  learning_rate: 1.0e-5
+  weight_decay: 0.001
+  epochs: 15
+  patience: 3       # early stopping on validation macro-F1
+  min_delta: 0.001
+  seed: 42
+
+augmentation:
+  # "balance": oversample minority classes up to the majority class with synonym replacement
+  strategy: balance
+  n_replacements: 2

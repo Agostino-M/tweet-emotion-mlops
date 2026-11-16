@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Data & artifacts (reproducible via `tweet-nlp-data` and `tweet-nlp-train`)
+data/
+artifacts/
+mlruns/
+*.pt
+*.pth
+*.onnx
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
+
+# Secrets
+.env
+
+# Local AI assistant files (kept out of the repo)
+CLAUDE.md
+CLAUDE.local.md
+.claude/
