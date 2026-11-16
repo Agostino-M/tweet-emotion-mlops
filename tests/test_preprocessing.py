@@ -2,13 +2,24 @@ from tweet_nlp.preprocessing import (
     clean_text,
     convert_emojis_to_text,
     convert_emoticons_to_text,
-    sanitize_text,
+    decode_html_entities,
+    remove_newlines_and_tabs,
     split_hashtags,
 )
 
 
-def test_sanitize_collapses_whitespace_and_literal_escapes():
-    assert sanitize_text("  a\tb\\nc \n\n d  ") == "a b c d"
+def test_remove_newlines_and_tabs_collapses_whitespace_and_literal_escapes():
+    assert remove_newlines_and_tabs("  a\tb\\nc \n\n d  ") == "a b c d"
+
+
+def test_html_entities_are_decoded():
+    assert decode_html_entities("Rock &amp; Roll &lt;3") == "Rock & Roll <3"
+
+
+def test_html_entities_are_decoded_before_emoticons():
+    # `&gt;:(` is the angry emoticon `>:(`: it is only recognised once decoded.
+    assert clean_text("so mad &gt;:(") == clean_text("so mad >:(")
+    assert ">:(" not in clean_text("so mad &gt;:(")
 
 
 def test_removes_urls_and_mentions():
