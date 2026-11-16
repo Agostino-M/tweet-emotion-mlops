@@ -25,20 +25,71 @@ def _wordnet():
     return wordnet
 
 
-def synonym_replacement(text: str, n: int = 1, rng: random.Random | None = None) -> str:
-    """Replace up to `n` random words that have a WordNet synset with their first synonym."""
-    rng = rng or random.Random()
-    wordnet = _wordnet()
-    words = text.split()
-    new_words = words.copy()
+@lru_cache(maxsize=1)
+def _stopwords():
+    import nltk
+    from nltk.corpus import stopwords
 
-    candidates = [w for w in words if wordnet.synsets(w)]
-    for _ in range(n):
-        if not candidates:
-            break
-        word = rng.choice(candidates)
-        synonym = wordnet.synsets(word)[0].lemmas()[0].name().replace("_", " ")
-        new_words = [synonym if w == word else w for w in new_words]
+    try:
+        stopwords.words("english")
+    except LookupError:
+        nltk.download("stopwords", quiet=True)
+    return set(stopwords.words("english"))
+
+
+@lru_cache(maxsize=1)
+def _pos_tag():
+    import nltk
+
+    try:
+        nltk.pos_tag(["test"])
+    except LookupError:
+        nltk.download("averaged_perceptron_tagger_eng", quiet=True)
+    return nltk.pos_tag
+
+
+# First letter of a Penn Treebank tag -> WordNet part of speech.
+_PENN_TO_WORDNET = {"J": "a", "N": "n", "V": "v", "R": "r"}
+
+
+@lru_cache(maxsize=50_000)
+def _synonyms(word: str, pos: str) -> tuple[str, ...]:
+    """Single-word WordNet synonyms of `word` with part of speech `pos`, excluding the word itself.
+
+    Sorted so that `rng.choice` is reproducible across processes (set order is not).
+    """
+    names = {
+        lemma.name()
+        for synset in _wordnet().synsets(word, pos=pos)
+        for lemma in synset.lemmas()
+    }
+    return tuple(sorted(
+        name for name in names if "_" not in name and name.lower() != word.lower()
+    ))
+
+
+def synonym_replacement(text: str, n: int = 1, rng: random.Random | None = None) -> str:
+    """Replace up to `n` distinct words with a random WordNet synonym of the same part of speech.
+
+    Stopwords, words with an unsupported part of speech and words without synonyms are never
+    replaced. The number of words is preserved (multi-word synonyms are skipped).
+    """
+    rng = rng or random.Random()
+    words = text.split()
+    stopwords = _stopwords()
+
+    # position -> possible synonyms, only for replaceable words
+    options: dict[int, tuple[str, ...]] = {}
+    for i, (word, tag) in enumerate(_pos_tag()(words)):
+        pos = _PENN_TO_WORDNET.get(tag[:1])
+        if pos is None or word.lower() in stopwords:
+            continue
+        if synonyms := _synonyms(word, pos):
+            options[i] = synonyms
+
+    new_words = words.copy()
+    for i in rng.sample(sorted(options), k=min(n, len(options))):
+        new_words[i] = rng.choice(options[i])
     return " ".join(new_words)
 
 
