@@ -3,11 +3,13 @@
 The same `clean_text` must run at training time and at inference time, otherwise the model
 sees a different input distribution in production (training/serving skew).
 
-Pipeline: remove URLs & mentions -> emoticons to text -> emojis to text -> split hashtags -> normalise whitespace.
+Pipeline: decode HTML entities -> remove URLs & mentions -> emoticons to text -> emojis to text
+-> split hashtags -> normalise whitespace.
 """
 
 from __future__ import annotations
 
+import html
 import re
 from functools import lru_cache
 
@@ -31,10 +33,9 @@ def _wordsegment():
     return wordsegment
 
 
-def sanitize_text(text: str) -> str:
-    """Replace literal and real newlines/tabs with spaces and collapse whitespace."""
-    text = text.replace("\\n", " ").replace("\\t", " ").replace("\\r", " ")
-    return _WS_RE.sub(" ", text).strip()
+def decode_html_entities(text: str) -> str:
+    """`&amp;` -> `&`, `&gt;:(` -> `>:(`."""
+    return html.unescape(text)
 
 
 def convert_emoticons_to_text(text: str) -> str:
@@ -68,10 +69,17 @@ def split_hashtags(text: str) -> str:
     return " ".join(words)
 
 
+def remove_newlines_and_tabs(text: str) -> str:
+    """Replace literal and real newlines/tabs with spaces and collapse whitespace."""
+    text = text.replace("\\n", " ").replace("\\t", " ").replace("\\r", " ")
+    return _WS_RE.sub(" ", text).strip()
+
+
 def clean_text(text: str) -> str:
     """Full preprocessing pipeline applied to every tweet."""
+    text = decode_html_entities(text)
     text = _URL_MENTION_RE.sub("", text)
     text = convert_emoticons_to_text(text)
     text = convert_emojis_to_text(text)
     text = split_hashtags(text)
-    return sanitize_text(text)
+    return remove_newlines_and_tabs(text)
